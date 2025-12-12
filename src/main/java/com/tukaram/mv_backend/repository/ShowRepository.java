@@ -8,6 +8,8 @@ import java.util.List;
 
 public interface ShowRepository extends JpaRepository<Show, Long> {
 
+    long countByMovieId(Long movieId);
+
     List<Show> findByMovieId(Long movieId);
 
     List<Show> findByTheatreId(Long theatreId);
@@ -15,4 +17,6 @@ public interface ShowRepository extends JpaRepository<Show, Long> {
     List<Show> findByScreenId(Long screenId);
 
     List<Show> findByShowTimeBetween(LocalDateTime from, LocalDateTime to);
+
+
 }

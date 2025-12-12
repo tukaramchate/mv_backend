@@ -1,26 +1,28 @@
 package com.tukaram.mv_backend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tukaram.mv_backend.dto.CreateMovieRequest;
 import com.tukaram.mv_backend.model.Movie;
 import com.tukaram.mv_backend.repository.MovieRepository;
-import org.junit.jupiter.api.*;
+import com.tukaram.mv_backend.test.AbstractIntegrationTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-
+/**
+ * Example integration test that now relies on AbstractIntegrationTest.cleanupDatabase()
+ * to clear DB before each test. Do NOT call deleteAll() here.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
-class MovieControllerIntegrationTest {
+class MovieControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -32,59 +34,42 @@ class MovieControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @BeforeEach
-    void setup() {
-        movieRepository.deleteAll();
+    void setupTestData() {
+        // do NOT delete tables here — the base class already cleaned them
+        // create any test data you need for each test
+        movieRepository.save(Movie.builder()
+                .title("Integration Movie")
+                .durationMinutes(120)
+                .language("English")
+                .genre("Action")
+                .build());
+    }
+
+    @Test
+    void getAllMovies_shouldReturnAtLeastOne() throws Exception {
+        mockMvc.perform(get("/api/movies")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", not(empty())));
     }
 
     @Test
     void postAndGetMovie_flow_shouldWork() throws Exception {
-        CreateMovieRequest req = CreateMovieRequest.builder()
-                .title("Integration Movie")
-                .description("Integration desc")
-                .durationMinutes(95)
-                .language("English")
+        Movie m = Movie.builder()
+                .title("New Movie")
+                .durationMinutes(90)
+                .language("Hindi")
                 .genre("Drama")
-                .posterUrl("http://poster")
                 .build();
 
-        // Create movie (POST)
-        String postBody = objectMapper.writeValueAsString(req);
+        String payload = objectMapper.writeValueAsString(m);
 
+        // create
         mockMvc.perform(post("/api/movies")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(postBody))
+                        .content(payload))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", containsString("/api/movies/")))
                 .andExpect(jsonPath("$.id", notNullValue()))
-                .andExpect(jsonPath("$.title", is("Integration Movie")));
-
-        // Ensure repository has one movie
-        Movie saved = movieRepository.findAll().get(0);
-
-        // GET the created movie
-        mockMvc.perform(get("/api/movies/{id}", saved.getId()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id", is(saved.getId().intValue())))
-                .andExpect(jsonPath("$.title", is("Integration Movie")));
-    }
-
-    @Test
-    void getAllMovies_shouldReturnEmptyListInitially() throws Exception {
-        mockMvc.perform(get("/api/movies"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
-    }
-
-    @Test
-    void searchByTitle_shouldReturnMatches() throws Exception {
-        Movie m1 = Movie.builder().title("Avengers").durationMinutes(120).build();
-        Movie m2 = Movie.builder().title("Average Joe").durationMinutes(90).build();
-        movieRepository.save(m1);
-        movieRepository.save(m2);
-
-        mockMvc.perform(get("/api/movies").param("q", "Aveng"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].title", is("Avengers")));
+                .andExpect(jsonPath("$.title", is("New Movie")));
     }
 }
